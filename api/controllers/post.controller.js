@@ -18,17 +18,16 @@ export const getPosts = async (req, res) => {
       },
     });
 
-    // setTimeout(() => {
     res.status(200).json(posts);
-    // }, 3000);
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.status(500).json({ message: "Failed to get posts" });
   }
 };
 
 export const getPost = async (req, res) => {
   const id = req.params.id;
+
   try {
     const post = await prisma.post.findUnique({
       where: { id },
@@ -43,6 +42,10 @@ export const getPost = async (req, res) => {
       },
     });
 
+    if (!post) {
+      return res.status(404).json({ message: "Post not found!" });
+    }
+
     const token = req.cookies?.token;
 
     if (token) {
@@ -56,13 +59,18 @@ export const getPost = async (req, res) => {
               },
             },
           });
-          res.status(200).json({ ...post, isSaved: saved ? true : false });
+
+          return res.status(200).json({ ...post, isSaved: saved ? true : false });
+        } else {
+          console.error("JWT verification error:", err.message);
         }
       });
+      return;
     }
+
     res.status(200).json({ ...post, isSaved: false });
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.status(500).json({ message: "Failed to get post" });
   }
 };
@@ -75,25 +83,56 @@ export const addPost = async (req, res) => {
     const newPost = await prisma.post.create({
       data: {
         ...body.postData,
-        userId: tokenUserId,
+        user: {
+          connect: {
+            id: tokenUserId, // ✅ Connects the post to the correct user
+          },
+        },
         postDetail: {
           create: body.postDetail,
         },
       },
     });
-    res.status(200).json(newPost);
+
+    res.status(201).json(newPost);
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.status(500).json({ message: "Failed to create post" });
   }
 };
 
 export const updatePost = async (req, res) => {
+  const id = req.params.id;
+  const tokenUserId = req.userId;
+  const body = req.body;
+
   try {
-    res.status(200).json();
+    const post = await prisma.post.findUnique({
+      where: { id },
+    });
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found!" });
+    }
+
+    if (post.userId !== tokenUserId) {
+      return res.status(403).json({ message: "Not Authorized!" });
+    }
+
+    const updatedPost = await prisma.post.update({
+      where: { id },
+      data: {
+        ...body.postData,
+        postDetail: {
+          update: body.postDetail,
+        },
+      },
+    });
+
+    res.status(200).json(updatedPost);
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ message: "Failed to update posts" });
+    console.error(err);
+    res.status(500).json({ message: "Failed to update post" });
   }
 };
 
@@ -106,6 +145,10 @@ export const deletePost = async (req, res) => {
       where: { id },
     });
 
+    if (!post) {
+      return res.status(404).json({ message: "Post not found!" });
+    }
+
     if (post.userId !== tokenUserId) {
       return res.status(403).json({ message: "Not Authorized!" });
     }
@@ -114,9 +157,9 @@ export const deletePost = async (req, res) => {
       where: { id },
     });
 
-    res.status(200).json({ message: "Post deleted" });
+    res.status(200).json({ message: "Post deleted successfully!" });
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.status(500).json({ message: "Failed to delete post" });
   }
 };

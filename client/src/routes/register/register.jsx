@@ -12,28 +12,33 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("")
+    setError("");
     setIsLoading(true);
+  
     const formData = new FormData(e.target);
-
     const username = formData.get("username");
     const email = formData.get("email");
     const password = formData.get("password");
-
+  
+    console.log("Form Data:", { username, email, password }); // Log data to console
+  
     try {
       const res = await apiRequest.post("/auth/register", {
         username,
         email,
         password,
       });
-
+  
+      console.log("Registration Success:", res); // Log success response
       navigate("/login");
     } catch (err) {
-      setError(err.response.data.message);
+      console.error("Registration Error:", err); // Log error
+      setError(err.response?.data?.message || "Registration failed");
     } finally {
       setIsLoading(false);
     }
   };
+  
   return (
     <div className="registerPage">
       <div className="formContainer">
